@@ -2,6 +2,8 @@
 #include<stdlib.h>
 #include<string.h>
 #include<dirent.h>
+#include<unistd.h>
+#include<sys/stat.h>
 
 #define MAX 300
 typedef struct Node{
@@ -176,33 +178,75 @@ int main(){
   int choice;
   char filename[MAX];
   char dirName[MAX];
+  char path[MAX];
   printf("Enter directory path:");
   scanf("%s",dirName);
   root=scanDirectory(root,dirName);
 
   while(1){
-    printf("\n1.INSERT FILE\n2.DELETE FILE\n3.SEARCH FILE\n4.DISPLAY ALL FILES\n5.EXIT\n");
+    printf("\n1.CREATE FILE\n2.DELETE FILE\n3.SEARCH FILE\n4.DISPLAY ALL FILES\n5.EXIT\n");
     printf("Enter your choice:");
     scanf("%d",&choice);
     switch (choice)
     {
       case 1:
-        printf("Enter the filename to be inserted:");
-        scanf("%s",&filename);
+        printf("Enter the filename to be created:");
+        scanf("%s",filename);
         root=insert(root,filename);
-        printf("%s inserted\n",filename);
+        
+        snprintf(path, MAX, "%s\\%s", dirName, filename);
+
+        FILE *file = fopen(path, "w");
+        if (file) {
+            fclose(file);
+            printf("%s created in %s\n", filename,dirName);
+        } else {
+            printf("Failed to create file: %s\n", path);
+        }
+
         break;
         
       case 2:
         printf("Enter the filename to be deleted:");
-        scanf("%s",&filename);
-        root=delete(root,filename);
-        printf("%s deleted\n",filename);
+        scanf("%s",filename);
+
+        snprintf(path, MAX, "%s\\%s", dirName, filename);
+
+        if (access(path, F_OK) == 0) {
+          struct stat statbuf;
+
+          if (stat(path, &statbuf) == 0) {
+            if (S_ISDIR(statbuf.st_mode)) {
+              if (rmdir(path) == 0) {
+                root = delete(root, filename);
+                printf("Directory %s deleted from %s\n", filename, dirName);
+              } else {
+                printf("Failed to delete directory");
+              }
+            }
+          
+            else{
+              if (remove(path) == 0) {
+                root = delete(root, filename);
+                printf("%s deleted from %s\n", filename,dirName);
+              } else {
+                  printf("Failed to delete file: %s\n", path);
+              }
+            }
+          }
+        }
+        else{
+          printf("File not found\n");
+        }
+
         break;
 
       case 3:
         printf("Enter the filename to be searched:");
-        scanf("%s",&filename);
+        scanf("%s",filename);
+     
+        snprintf(path, MAX, "%s\\%s", dirName, filename);
+        
         temp=search(root,filename);
         if(temp!=NULL){
           printf("%s found\n",temp->filename);
