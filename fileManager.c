@@ -1,8 +1,11 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<string.h>
+#include<dirent.h>
 
+#define MAX 300
 typedef struct Node{
-  int element;
+  char filename[MAX];
   struct Node *left;
   struct Node *right;
   int height;
@@ -18,9 +21,9 @@ int max(int a, int b) {
   return (a > b) ? a : b;
 }
 
-Node *createNode(int element){
+Node *createNode(char *filename){
   Node *newNode = (Node *) malloc (sizeof(Node));
-  newNode->element=element;
+  strcpy(newNode->filename,filename);
   newNode->left=NULL;
   newNode->right=NULL;
   newNode->height=1;
@@ -59,47 +62,47 @@ Node *leftRotate(Node *x){
   return y;
 }
 
-void in_order(Node *root){
-  if(root!=NULL){
-    in_order(root->left);
-    printf("%d ",root->element);
-    in_order(root->right);
-  }
-}
-
-Node *insert(Node *root,int element){
+Node *insert(Node *root,char *filename){
   if(root==NULL){
-    return createNode(element);
+    return createNode(filename);
   }
-  else if(element<root->element){
-    root->left=insert(root->left,element);
+  else if (strcmp(filename,root->filename)<0){
+    root->left=insert(root->left,filename);
   }
   else{
-    root->right=insert(root->right,element);
+    root->right=insert(root->right,filename);
   }
   
   root->height=max(getHeight(root->right),getHeight(root->left)) +1;
   int bf=getBalanceFactor(root);
 
-  if(bf>1 && element<root->left->element){
+  if(bf>1 && strcmp(filename,root->left->filename)<0){
     return rightRotate(root);
   }
 
-  if(bf<-1 && element>root->right->element){
+  if(bf<-1 && strcmp(filename,root->right->filename)>0){
     return leftRotate(root);
   }
 
-  if(bf>1 && element>root->left->element){
+  if(bf>1 && strcmp(filename,root->left->filename)>0){
     root->left=leftRotate(root->left);
     return rightRotate(root);
   }
 
-  if(bf<-1 && element<root->right->element){
+  if(bf<-1 && strcmp(filename,root->right->filename)<0){
     root->right=rightRotate(root->right);
     return leftRotate(root);
   }
 
   return root;
+}
+
+void in_order(Node *root){
+  if(root!=NULL){
+    in_order(root->left);
+    printf("%s\n",root->filename);
+    in_order(root->right);
+  }
 }
 
 Node *findMin(Node *root){
@@ -108,14 +111,14 @@ Node *findMin(Node *root){
   return root;
 }
 
-Node *delete(Node *root,int element){
+Node *delete(Node *root,char *filename){
   Node *temp;
   if (root == NULL)
     return root;
-  else if (element < root->element)
-    root->left = delete(root->left, element);
-  else if (element > root->element)
-    root->right = delete(root->right, element);
+  else if (strcmp(filename, root->filename)<0)
+    root->left = delete(root->left, filename);
+  else if (strcmp(filename, root->filename)>0)
+    root->right = delete(root->right, filename);
     else{
       if(root->left==NULL){
         temp=root->right;
@@ -133,61 +136,90 @@ Node *delete(Node *root,int element){
       }
       else{
         temp=findMin(root->right);
-        root->element=temp->element;
-        root->right=delete(root->right,temp->element);
+        strcpy(root->filename,temp->filename);
+        root->right=delete(root->right,temp->filename);
       }
     }
 }
 
-Node *search(Node *root,int element){
-  if(root==NULL || root->element==element)
+Node *search(Node *root,char *filename){
+  if(root==NULL || root->filename==filename)
     return root;
-  else if(element<root->element)
-    return search(root->left,element);
+  else if (strcmp(filename,root->filename)<0)
+    return search(root->left,filename);
   else
-    return search(root->right,element);
+    return search(root->right,filename);
+}
+
+Node *scanDirectory(Node *root,char *dirName){
+  struct dirent *entry;
+  DIR *directory=opendir(dirName);
+
+  if(directory==NULL){
+    printf("Could not open directory: %s\n", dirName);
+    return root;
+  }
+
+  printf("You are inside %s\n",dirName);
+  while((entry=readdir(directory)) !=NULL){
+    if(entry->d_name[0] != '.'){
+      root=insert(root,entry->d_name);
+    }
+  }
+
+  closedir(directory);
+  return root;
 }
 
 int main(){
   Node *root=NULL,*temp=NULL;
-  int choice,element;
+  int choice;
+  char filename[MAX];
+  char dirName[MAX];
+  printf("Enter directory path:");
+  scanf("%s",dirName);
+  root=scanDirectory(root,dirName);
 
   while(1){
-    printf("1.INSERT\n2.DELETE\n3.SEARCH\n4.SORT\n");
+    printf("\n1.INSERT FILE\n2.DELETE FILE\n3.SEARCH FILE\n4.DISPLAY ALL FILES\n5.EXIT\n");
     printf("Enter your choice:");
     scanf("%d",&choice);
     switch (choice)
     {
       case 1:
-        printf("Enter the element to be inserted:");
-        scanf("%d",&element);
-        root=insert(root,element);
-        printf("%d inserted\n",element);
+        printf("Enter the filename to be inserted:");
+        scanf("%s",&filename);
+        root=insert(root,filename);
+        printf("%s inserted\n",filename);
         break;
         
       case 2:
-        printf("Enter the element to be deleted:");
-        scanf("%d",&element);
-        root=delete(root,element);
-        printf("%d deleted\n",element);
+        printf("Enter the filename to be deleted:");
+        scanf("%s",&filename);
+        root=delete(root,filename);
+        printf("%s deleted\n",filename);
         break;
 
       case 3:
-        printf("Enter the element to be searched:");
-        scanf("%d",&element);
-        temp=search(root,element);
+        printf("Enter the filename to be searched:");
+        scanf("%s",&filename);
+        temp=search(root,filename);
         if(temp!=NULL){
-          printf("%d found\n",temp->element);
+          printf("%s found\n",temp->filename);
         }
         else{
-          printf("Element not found\n");
+          printf("File not found\n");
         }
         break;
 
       case 4:
-        pre_order(root);
-        printf("\n");
+        printf("\nFiles in sorted order:\n");
+        in_order(root);
         break;
+
+      case 5:
+        printf("Exiting program...\n");
+        return 0;
 
       default:
         printf("Invalid choice. Try again.\n");
