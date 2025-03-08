@@ -3,7 +3,6 @@
 #include<string.h>
 #include<dirent.h>
 #include<unistd.h>
-#include<sys/stat.h>
 
 #define MAX 300
 typedef struct Node{
@@ -13,6 +12,15 @@ typedef struct Node{
   int height;
 }Node;
 
+Node *createNode(char *filename){
+  Node *newNode = (Node *) malloc (sizeof(Node));
+  strcpy(newNode->filename,filename);
+  newNode->left=NULL;
+  newNode->right=NULL;
+  newNode->height=1;
+  return newNode;
+}
+
 int getHeight(Node *root){
   if(root==NULL)
     return 0;
@@ -21,15 +29,6 @@ int getHeight(Node *root){
 
 int max(int a, int b) {
   return (a > b) ? a : b;
-}
-
-Node *createNode(char *filename){
-  Node *newNode = (Node *) malloc (sizeof(Node));
-  strcpy(newNode->filename,filename);
-  newNode->left=NULL;
-  newNode->right=NULL;
-  newNode->height=1;
-  return newNode;
 }
 
 int getBalanceFactor(Node *root){
@@ -67,6 +66,10 @@ Node *leftRotate(Node *x){
 Node *insert(Node *root,char *filename){
   if(root==NULL){
     return createNode(filename);
+  } 
+
+  if (strcmp(filename,root->filename)==0){
+    return root;
   }
   else if (strcmp(filename,root->filename)<0){
     root->left=insert(root->left,filename);
@@ -99,18 +102,10 @@ Node *insert(Node *root,char *filename){
   return root;
 }
 
-void in_order(Node *root){
-  if(root!=NULL){
-    in_order(root->left);
-    printf("%s\n",root->filename);
-    in_order(root->right);
-  }
-}
-
 Node *findMin(Node *root){
-  while(root->left!=NULL)
-    root=root->left;
-  return root;
+while(root->left!=NULL)
+  root=root->left;
+return root;
 }
 
 Node *delete(Node *root,char *filename){
@@ -121,36 +116,44 @@ Node *delete(Node *root,char *filename){
     root->left = delete(root->left, filename);
   else if (strcmp(filename, root->filename)>0)
     root->right = delete(root->right, filename);
-    else{
-      if(root->left==NULL){
-        temp=root->right;
-        if(temp){
+  else{
+    if(root->left==NULL){
+      temp=root->right;
+      if(temp){
           free(root);
           return temp;
-        }
-      }
-      else if(root->right==NULL){
-        temp=root->left;
-        if(temp){
-          free(root);
-          return temp;
-        }
-      }
-      else{
-        temp=findMin(root->right);
-        strcpy(root->filename,temp->filename);
-        root->right=delete(root->right,temp->filename);
       }
     }
+    else if(root->right==NULL){
+      temp=root->left;
+      if(temp){
+        free(root);
+        return temp;
+      }
+    }
+    else{
+      temp=findMin(root->right);
+      strcpy(root->filename,temp->filename);
+      root->right=delete(root->right,temp->filename);
+    }
+  }
 }
 
 Node *search(Node *root,char *filename){
-  if(root==NULL || root->filename==filename)
+  if(root==NULL || strcmp(root->filename,filename)==0)
     return root;
   else if (strcmp(filename,root->filename)<0)
     return search(root->left,filename);
   else
     return search(root->right,filename);
+}
+  
+void in_order(Node *root){
+  if(root!=NULL){
+    in_order(root->left);
+    printf("%s\n",root->filename);
+    in_order(root->right);
+  }
 }
 
 Node *scanDirectory(Node *root,char *dirName){
@@ -159,7 +162,9 @@ Node *scanDirectory(Node *root,char *dirName){
 
   if(directory==NULL){
     printf("Could not open directory: %s\n", dirName);
-    return root;
+    printf("Please enter a valid directory path: ");
+    scanf("%s", dirName);
+    directory = opendir(dirName);
   }
 
   printf("You are inside %s\n",dirName);
@@ -191,62 +196,41 @@ int main(){
     {
       case 1:
         printf("Enter the filename to be created:");
-        scanf("%s",filename);
-        root=insert(root,filename);
-        
+        scanf("%s", filename);
         snprintf(path, MAX, "%s\\%s", dirName, filename);
+
+        while (access(path, F_OK) == 0) { 
+            printf("%s already exists. Please enter a new filename.\n", filename);
+            scanf("%s", filename); 
+            snprintf(path, MAX, "%s\\%s", dirName, filename);  
+        }
 
         FILE *file = fopen(path, "w");
         if (file) {
             fclose(file);
-            printf("%s created in %s\n", filename,dirName);
+            root = insert(root, filename);
+            printf("%s created in %s\n", filename, dirName);
         } else {
             printf("Failed to create file: %s\n", path);
         }
-
         break;
-        
+
       case 2:
         printf("Enter the filename to be deleted:");
         scanf("%s",filename);
-
         snprintf(path, MAX, "%s\\%s", dirName, filename);
 
-        if (access(path, F_OK) == 0) {
-          struct stat statbuf;
-
-          if (stat(path, &statbuf) == 0) {
-            if (S_ISDIR(statbuf.st_mode)) {
-              if (rmdir(path) == 0) {
-                root = delete(root, filename);
-                printf("Directory %s deleted from %s\n", filename, dirName);
-              } else {
-                printf("Failed to delete directory");
-              }
-            }
-          
-            else{
-              if (remove(path) == 0) {
-                root = delete(root, filename);
-                printf("%s deleted from %s\n", filename,dirName);
-              } else {
-                  printf("Failed to delete file: %s\n", path);
-              }
-            }
-          }
+        if (remove(path) == 0) {
+            root = delete(root, filename);
+            printf("%s deleted from %s\n", filename,dirName);
+        } else {
+            printf("File not found or deletion failed.\n");
         }
-        else{
-          printf("File not found\n");
-        }
-
         break;
 
       case 3:
         printf("Enter the filename to be searched:");
         scanf("%s",filename);
-     
-        snprintf(path, MAX, "%s\\%s", dirName, filename);
-        
         temp=search(root,filename);
         if(temp!=NULL){
           printf("%s found\n",temp->filename);
